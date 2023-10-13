@@ -1,95 +1,49 @@
-import { Component } from 'react';
+import {useEffect, useState} from 'react';
 import PropTypes from 'prop-types';
+import { Link } from 'react-router-dom';
 
-import Spinner from '../spinner/Spinner';
-import ErrorMessage from '../errorMessage/ErrorMessage';
-import MarvelService from '../../services/MarvelServices';
-import Skeleton from '../skeleton/Skeleton';
-
+import useMarvelService from '../../services/MarvelServices';
 import './charInfo.scss';
 
+import setContent from '../../utils/setContent';
 
 
-class CharInfo extends Component {
+const CharInfo = (props) => {
 
-    state = {
-        char: null,
-        loading: false,
-        error: false
-    }
+    const [char, setChar] = useState(null);
     
-    marvelService = new MarvelService();
+    const {getCharacter, clearError, process, setProcess} = useMarvelService();
 
-    componentDidMount() {
-        this.updateChar();
-    }
 
-    componentDidUpdate(prevProps) {
-        if (this.props.charId !== prevProps.charId) {
-            this.updateChar();
-        }
-    }
+    useEffect(() => {
+        updateChar();
+    }, [props.charId]);
 
-    componentDidCatch(err, info) {
-        this.setState({error: true})
-    }
-
-    updateChar = () => {
-        const {charId} = this.props;
+    const updateChar = () => {
+        const {charId} = props;
         if (!charId) {
             return;
         }
-        this.onCharLoading();
+        clearError();
+        getCharacter(charId)
+            .then(onCharListLoaded)
+            .then(() => setProcess('confirmed')) // We set the state of the process as confiemed due to the end of the process, so when charListloaded finished, we set the process as confirmed
 
-        this.marvelService
-            .getCharacter(charId)
-            .then(this.onCharListLoaded)
-            .catch(this.onError);
     }
 
-    onCharLoading = () => {
-        this.setState({
-            loading: true
-        })
+    const onCharListLoaded = (char) => {
+        setChar(char);
     }
 
-    onCharListLoaded = (char) => {
-        this.setState({
-            char,
-            loading: false
-        })
-    }
-
-    onError = () => {
-        this.setState({
-            error: true,
-            loading: false
-        })
-    }
-
-   
-
-    render() {
-        const { char, loading, error} = this.state;
-
-        const skeleton = char || loading || error? null: <Skeleton/>
-        const errorMessage = error ? <ErrorMessage/> : null;
-        const spinner = loading ? <Spinner/> : null;
-        const content = !(loading || error || !char) ?  <View char={char}/>: null;
-
-        return (
-            <div className="char__info">
-                {skeleton}
-                {errorMessage}
-                {spinner}
-                {content}
-            </div>
-        )
-    }
+    return (
+        <div className="char__info">
+            {setContent(process, View, char)}
+        </div>
+    )
 }
 
-const View = ({char}) => {
-    const {name, description, thumbnail, homapage, wiki, comics } = char;
+const View = ({data}) => {
+    const {name, description, thumbnail, homapage, wiki, comics } = data;
 
     const isComics = comics.length === 0 ? "This here has never been seen in comics" : null;
 
@@ -122,11 +76,12 @@ const View = ({char}) => {
         <ul className="char__comics-list">
             {   
                 comics.map((item, i) => {
-                    if (i < 9 && i > 0) {
+                    if (i < 9 && i >= 0) {
+                        const itemId = item.resourceURI.slice(43);
                         return (
-                            <li className="char__comics-item" key={i}>
+                            <Link to={`/comics/${itemId}`} className="char__comics-item" key={i}>
                                 {item.name}
-                            </li>
+                            </Link>
                         )
                     }
                 })
